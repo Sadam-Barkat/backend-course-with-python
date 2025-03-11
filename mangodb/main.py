@@ -1,31 +1,27 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-from confing.db_connection import get_db
-
-client = get_db()
-db = client["hussain_database"]
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi import Request
+from routes.hussain import hussain_route
 
 app = FastAPI()
 
-@app.get("/")
-async def get():
-    try:
-        collection = db.hussain.find()
-        data = []
-        for document in collection:
-            data.append({
-                "name":document["name"],
-                "age":document["age"],
-                "dept":document["dept"]
-            })
-        return{
-            "data":data,
-            "status":"success"
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        errors.append({
+            "field": ".".join(map(str, error["loc"])),  # Converts tuple path to a string
+            "message": error["msg"]
+        })
+    
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status": "error",
+            "message": "Validation failed",
+            "errors": errors
         }
+    )
 
-    except Exception as e:
-        return{
-            "data":None,
-            "message":str(e),
-            "status":"error"
-        }    
+app.include_router(hussain_route)
